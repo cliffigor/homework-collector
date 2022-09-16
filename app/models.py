@@ -9,3 +9,11 @@ class User(db.Model):
 
     def __repr__(self):
         return '<User %r>' % self.username
+
+
+class Work(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(20), unique=True)
+
+    def __repr__(self):
+        return '<Work %r>' % self.type

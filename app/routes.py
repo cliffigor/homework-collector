@@ -1,16 +1,9 @@
-from config import Config
-from flask import Flask, render_template, request, redirect
-from flask_bootstrap import Bootstrap
-from flask_sqlalchemy import SQLAlchemy
+from flask import render_template, request, redirect, flash
+from app import app, db
 from werkzeug.utils import secure_filename
 from pypinyin import lazy_pinyin
+from app.models import Work
 import os
-
-app = Flask(__name__)
-bootstrap = Bootstrap(app)
-db = SQLAlchemy(app)
-
-app.config.from_object(Config)
 
 
 @app.route("/")
@@ -21,6 +14,9 @@ def index():
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
+    workTypes = []
+    for i in range(len(Work.query.all())):
+        workTypes.append(Work.query.all()[i].type)
     if request.method == 'POST':
         if 'file' not in request.files:
             return redirect(request.url)
@@ -48,8 +44,33 @@ def upload():
                 return '上传成功'
             except:
                 return '上传失败，请联系管理员'
-    return render_template("upload.html")
+    return render_template("upload.html", workTypes=workTypes)
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+@app.route("/admin", methods=['GET', 'POST'])
+def admin():
+    workTypes = []
+    for i in range(len(Work.query.all())):
+        workTypes.append(Work.query.all()[i].type)
+    if request.method == 'POST':
+        addType = request.form.get("addWorkType")
+        delType = request.form.get("delWorkType")
+        if addType is not None:
+            try:
+                work = Work(type=addType)
+                db.session.add(work)
+                db.session.commit()
+                return redirect("/admin")
+            except:
+                return "出现错误"
+        if delType is not None:
+            try:
+                temp = Work.query.filter_by(type=delType).first()
+                db.session.delete(temp)
+                db.session.commit()
+                return redirect("/admin")
+            except:
+                return "出现错误"
+
+        # flash("add success")
+    return render_template("admin.html", workTypes=workTypes)
