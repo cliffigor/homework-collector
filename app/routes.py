@@ -2,15 +2,9 @@ from flask import render_template, request, redirect, flash
 from app import app, db
 from werkzeug.utils import secure_filename
 from pypinyin import lazy_pinyin
-from app.models import Work
+from app.models import Work, User
 import os
 from config import Config
-
-
-@app.route("/")
-def index():
-    title = "Flask App"
-    return render_template("index.html", title=title)
 
 
 def allowed_file(filename):
@@ -19,11 +13,33 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
 
-@app.route('/upload', methods=['GET', 'POST'])
-def upload():
+def getWorkTypes():
     workTypes = []
     for i in range(len(Work.query.all())):
         workTypes.append(Work.query.all()[i].type)
+
+    return workTypes
+
+
+def get_filenames(file_dir):
+    # 获取upload目录下所有文件名
+    # os.walk函数能获取对应路径下的文件名
+    filenames = []
+    for root, dirs, files in os.walk(file_dir):
+        for file in files:
+            filenames.append(file)
+    return filenames
+
+
+@app.route("/")
+def index():
+    title = "Flask App"
+    return render_template("index.html", title=title)
+
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    workTypes = getWorkTypes()
     if request.method == 'POST':
         if 'file' not in request.files:
             return redirect(request.url)
@@ -37,6 +53,7 @@ def upload():
             title = request.form.get("title")
             suffix = "." + filename.rsplit('.', 1)[1].lower()
 
+            filename = stuID + name + title + suffix
             # 调用save函数，传入存储路径作为参数，用os.path.join拼接文件夹和文件名
             try:
                 route = Config.UPLOAD_FOLDER + '/' + type
@@ -79,3 +96,23 @@ def admin():
                 return "出现错误"
 
     return render_template("admin.html", workTypes=workTypes)
+
+
+@app.route("/check", methods=['GET', 'POST'])
+def check():
+    workTypes = getWorkTypes()
+    members = User.query.filter_by(stuClass="2019计算机").all()
+    memberNames = []
+    for i in range(len(members)):
+        memberNames.append(members[i].stuName)
+    if request.method == 'POST':
+        workType = request.form.get("type")
+
+        filenames = get_filenames(Config.UPLOAD_PATH + '/' + workType)
+
+        for filename in filenames:
+            name = filename.rsplit('-', 2)[1]  # 根据'-'对文件名进行分割，取出姓名
+            if name in memberNames:
+                memberNames.remove(name)
+
+    return render_template("check.html", workTypes=workTypes, memberNames=memberNames)
