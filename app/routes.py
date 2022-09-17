@@ -4,12 +4,19 @@ from werkzeug.utils import secure_filename
 from pypinyin import lazy_pinyin
 from app.models import Work
 import os
+from config import Config
 
 
 @app.route("/")
 def index():
     title = "Flask App"
     return render_template("index.html", title=title)
+
+
+def allowed_file(filename):
+    # 拆解filename，获取后缀并判断是否允许上传
+
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
 
 @app.route('/upload', methods=['GET', 'POST'])
@@ -21,29 +28,28 @@ def upload():
         if 'file' not in request.files:
             return redirect(request.url)
         file = request.files['file']
-        # If the user does not select a file, the browser submits an
-        # empty file without a filename.
-        if file.filename == '':
-            return '上传失败，文件名为空'
-        if file and app.config.allowed_file(file.filename):
+
+        if file and allowed_file(file.filename):
             filename = secure_filename(''.join(lazy_pinyin(file.filename)))
             name = request.form.get("name")
             type = request.form.get("type")
             stuID = request.form.get("stuID")
             title = request.form.get("title")
             suffix = "." + filename.rsplit('.', 1)[1].lower()
-            if type == "形势与政策":
-                filename = stuID + '-' + name + '-' + title + suffix
-            elif type == "职业发展与就业指导2":
-                filename = '2019计算机' + '-' + name + '-' + '就业指导2期末作业' + suffix
-            # 最关键的代码，调用save函数，传入存储路径作为参数，用os.path.join拼接文件夹和文件名
+
+            # 调用save函数，传入存储路径作为参数，用os.path.join拼接文件夹和文件名
             try:
-                route = app.config['UPLOAD_FOLDER'] + '/' + type
-                print(route)
+                route = Config.UPLOAD_FOLDER + '/' + type
+                if not os.path.exists(route):
+                    os.mkdir(route)
                 file.save(os.path.join(route, filename))
-                return '上传成功'
+                flash("上传成功", category='success')
             except:
-                return '上传失败，请联系管理员'
+                flash("上传失败", category='danger')
+
+        else:
+            flash("上传出现问题，文件名非法", category='danger')
+
     return render_template("upload.html", workTypes=workTypes)
 
 
@@ -72,5 +78,4 @@ def admin():
             except:
                 return "出现错误"
 
-        # flash("add success")
     return render_template("admin.html", workTypes=workTypes)
